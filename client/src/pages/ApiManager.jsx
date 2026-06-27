@@ -1,51 +1,109 @@
 // src/pages/ApiManager.jsx
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./ApiManager.css";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api/keys";
 
 function ApiManager() {
   const [showPopup, setShowPopup] = useState(false);
+  const [newApiLabel, setNewApiLabel] = useState("");
+  const [newApiKey, setNewApiKey] = useState("");
+  const [apiList, setApiList] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [apiList, setApiList] = useState([
-    {
-      id: 1,
-      label: "ElevenLabs - Main Acct",
-      key: "sk_eleven_9876543210abcdef",
-      active: true,
-      visible: false,
-    },
-  ]);
+  const loadApiKeys = async () => {
+    try {
+      const response = await fetch(API_URL);
+      const result = await response.json();
 
-  // Open Modal
+      if (result.success) {
+        setApiList((result.data || []).map((item) => ({ ...item, visible: false })));
+      }
+    } catch (error) {
+      console.error("Failed to load API keys", error);
+      setApiList([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadApiKeys();
+  }, []);
+
   const handleOpenPopup = () => {
     setShowPopup(true);
   };
 
-  // Close Modal
   const handleClosePopup = () => {
     setShowPopup(false);
+    setNewApiLabel("");
+    setNewApiKey("");
   };
 
-  // Toggle API Key Visibility
+  const handleSaveApi = async () => {
+    if (!newApiLabel.trim() || !newApiKey.trim()) {
+      alert("Please fill in both fields");
+      return;
+    }
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: newApiLabel,
+          key: newApiKey,
+          provider: "ElevenLabs",
+          active: true,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setApiList((prev) => [{ ...result.data, visible: false }, ...prev]);
+        handleClosePopup();
+      } else {
+        alert(result.message || "Unable to save API key");
+      }
+    } catch (error) {
+      console.error("Failed to save API key", error);
+      alert("Unable to save API key right now");
+    }
+  };
+
   const handleToggleKey = (id) => {
     setApiList((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, visible: !item.visible }
-          : item
-      )
+      prev.map((item) => (item.id === id ? { ...item, visible: !item.visible } : item))
     );
   };
 
-  // Copy API Key
-  const handleCopyKey = (key) => {
-    navigator.clipboard.writeText(key);
-    alert("API Key copied!");
+  const handleCopyKey = async (key) => {
+    try {
+      await navigator.clipboard.writeText(key);
+      alert("API Key copied!");
+    } catch (error) {
+      console.error("Copy failed", error);
+      alert("Copy failed. Please try again.");
+    }
   };
 
-  // Delete API
-  const handleDeleteApi = (id) => {
-    setApiList((prev) => prev.filter((item) => item.id !== id));
+  const handleDeleteApi = async (id) => {
+    try {
+      const response = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      const result = await response.json();
+
+      if (result.success) {
+        setApiList((prev) => prev.filter((item) => item.id !== id));
+      } else {
+        alert(result.message || "Unable to delete API key");
+      }
+    } catch (error) {
+      console.error("Failed to delete API key", error);
+      alert("Unable to delete API key right now");
+    }
   };
 
   return (
@@ -108,77 +166,61 @@ function ApiManager() {
         </button>
       </div>
 
-      <div className="api-grid">
-        {apiList.map((api) => (
-          <div className="api-card" key={api.id}>
-            <div className="api-card-header">
-              <div className="api-title">
-                <i
-                  className="fa-solid fa-microphone-lines"
-                  style={{ color: "var(--primary-orange)" }}
-                ></i>
+      {loading ? (
+        <p style={{ color: "var(--text-muted)", marginTop: "20px" }}>Loading API keys...</p>
+      ) : (
+        <div className="api-grid">
+          {apiList.map((api) => (
+            <div className="api-card" key={api.id}>
+              <div className="api-card-header">
+                <div className="api-title">
+                  <i
+                    className="fa-solid fa-microphone-lines"
+                    style={{ color: "var(--primary-orange)" }}
+                  ></i>
 
-                {" "}
-                {api.label}
+                  {" "}
+                  {api.label}
+                </div>
+
+                <span
+                  className="api-status"
+                  style={
+                    api.active
+                      ? {}
+                      : {
+                          background: "#f1f5f9",
+                          color: "#64748b",
+                        }
+                  }
+                >
+                  {api.active ? "Active" : "Inactive"}
+                </span>
               </div>
 
-              <span
-                className="api-status"
-                style={
-                  api.active
-                    ? {}
-                    : {
-                        background: "#f1f5f9",
-                        color: "#64748b",
-                      }
-                }
-              >
-                {api.active ? "Active" : "Inactive"}
-              </span>
+              <div className="api-key-box">
+                <input type={api.visible ? "text" : "password"} value={api.key} readOnly />
+
+                <button className="icon-btn" title="Copy Key" onClick={() => handleCopyKey(api.key)}>
+                  <i className="fa-regular fa-copy"></i>
+                </button>
+
+                <button className="icon-btn" title="Show / Hide" onClick={() => handleToggleKey(api.id)}>
+                  <i className={`fa-regular ${api.visible ? "fa-eye-slash" : "fa-eye"}`}></i>
+                </button>
+              </div>
+
+              <div className="api-actions">
+                <button className="icon-btn delete" onClick={() => handleDeleteApi(api.id)}>
+                  <i className="fa-solid fa-trash"></i>
+                  {" "}Delete
+                </button>
+              </div>
             </div>
+          ))}
+        </div>
+      )}
 
-            <div className="api-key-box">
-              <input
-                type={api.visible ? "text" : "password"}
-                value={api.key}
-                readOnly
-              />
-
-              <button
-                className="icon-btn"
-                title="Copy Key"
-                onClick={() => handleCopyKey(api.key)}
-              >
-                <i className="fa-regular fa-copy"></i>
-              </button>
-
-              <button
-                className="icon-btn"
-                title="Show / Hide"
-                onClick={() => handleToggleKey(api.id)}
-              >
-                <i
-                  className={`fa-regular ${
-                    api.visible ? "fa-eye-slash" : "fa-eye"
-                  }`}
-                ></i>
-              </button>
-            </div>
-
-            <div className="api-actions">
-              <button
-                className="icon-btn delete"
-                onClick={() => handleDeleteApi(api.id)}
-              >
-                <i className="fa-solid fa-trash"></i>
-                {" "}Delete
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Modal */}
       {showPopup && (
         <div className="modal-overlay">
           <div className="modal-box">
@@ -187,25 +229,25 @@ function ApiManager() {
             <input
               type="text"
               placeholder="API Label"
+              value={newApiLabel}
+              onChange={(e) => setNewApiLabel(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSaveApi()}
             />
 
             <input
               type="text"
               placeholder="API Key"
+              value={newApiKey}
+              onChange={(e) => setNewApiKey(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSaveApi()}
             />
 
             <div className="modal-actions">
-              <button
-                className="btn-primary"
-                onClick={handleClosePopup}
-              >
+              <button className="btn-primary" onClick={handleSaveApi}>
                 Save
               </button>
 
-              <button
-                className="btn-secondary"
-                onClick={handleClosePopup}
-              >
+              <button className="btn-secondary" onClick={handleClosePopup}>
                 Cancel
               </button>
             </div>
