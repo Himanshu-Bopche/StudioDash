@@ -1,6 +1,53 @@
 // src/pages/ApiManager.jsx
+
+import { useState } from "react";
 import "./ApiManager.css";
+
 function ApiManager() {
+  const [showPopup, setShowPopup] = useState(false);
+
+  const [apiList, setApiList] = useState([
+    {
+      id: 1,
+      label: "ElevenLabs - Main Acct",
+      key: "sk_eleven_9876543210abcdef",
+      active: true,
+      visible: false,
+    },
+  ]);
+
+  // Open Modal
+  const handleOpenPopup = () => {
+    setShowPopup(true);
+  };
+
+  // Close Modal
+  const handleClosePopup = () => {
+    setShowPopup(false);
+  };
+
+  // Toggle API Key Visibility
+  const handleToggleKey = (id) => {
+    setApiList((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, visible: !item.visible }
+          : item
+      )
+    );
+  };
+
+  // Copy API Key
+  const handleCopyKey = (key) => {
+    navigator.clipboard.writeText(key);
+    alert("API Key copied!");
+  };
+
+  // Delete API
+  const handleDeleteApi = (id) => {
+    setApiList((prev) => prev.filter((item) => item.id !== id));
+  };
+
   return (
     <>
       <div className="header">
@@ -21,8 +68,8 @@ function ApiManager() {
           src="https://ui-avatars.com/api/?name=Admin&background=ea580c&color=fff"
           alt="Profile"
           style={{
-            borderRadius: "50%",
             width: "40px",
+            borderRadius: "50%",
           }}
         />
       </div>
@@ -39,122 +86,132 @@ function ApiManager() {
 
           <p
             style={{
-              fontSize: "13px",
               color: "var(--text-muted)",
+              fontSize: "13px",
             }}
           >
             You have{" "}
             <strong
-              id="apiCount"
               style={{
                 color: "var(--primary-orange)",
               }}
             >
-              2
+              {apiList.length}
             </strong>{" "}
             active keys.
           </p>
         </div>
 
-        <button className="btn-primary">
+        <button className="btn-primary" onClick={handleOpenPopup}>
           <i className="fa-solid fa-plus"></i>
           {" "}Add New API Key
         </button>
       </div>
 
-      <div className="api-grid" id="apiGrid">
-        {/* Card 1 */}
+      <div className="api-grid">
+        {apiList.map((api) => (
+          <div className="api-card" key={api.id}>
+            <div className="api-card-header">
+              <div className="api-title">
+                <i
+                  className="fa-solid fa-microphone-lines"
+                  style={{ color: "var(--primary-orange)" }}
+                ></i>
 
-        <div className="api-card">
-          <div className="api-card-header">
-            <div className="api-title">
-              <i
-                className="fa-solid fa-microphone-lines"
-                style={{
-                  color: "var(--primary-orange)",
-                }}
-              ></i>
+                {" "}
+                {api.label}
+              </div>
 
-              {" "}ElevenLabs - Main Acct
+              <span
+                className="api-status"
+                style={
+                  api.active
+                    ? {}
+                    : {
+                        background: "#f1f5f9",
+                        color: "#64748b",
+                      }
+                }
+              >
+                {api.active ? "Active" : "Inactive"}
+              </span>
             </div>
 
-            <span className="api-status">Active</span>
-          </div>
+            <div className="api-key-box">
+              <input
+                type={api.visible ? "text" : "password"}
+                value={api.key}
+                readOnly
+              />
 
-          <div className="api-key-box">
-            <input
-              type="password"
-              value="sk_eleven_9876543210abcdef"
-              readOnly
-            />
+              <button
+                className="icon-btn"
+                title="Copy Key"
+                onClick={() => handleCopyKey(api.key)}
+              >
+                <i className="fa-regular fa-copy"></i>
+              </button>
 
-            <button className="icon-btn" title="Copy Key">
-              <i className="fa-regular fa-copy"></i>
-            </button>
-
-            <button className="icon-btn" title="Show/Hide Key">
-              <i className="fa-regular fa-eye"></i>
-            </button>
-          </div>
-
-          <div className="api-actions">
-            <button className="icon-btn delete" title="Delete Key">
-              <i className="fa-solid fa-trash"></i>
-              {" "}Delete
-            </button>
-          </div>
-        </div>
-
-        {/* Card 2 */}
-
-        <div className="api-card">
-          <div className="api-card-header">
-            <div className="api-title">
-              <i
-                className="fa-solid fa-microphone-lines"
-                style={{
-                  color: "var(--primary-orange)",
-                }}
-              ></i>
-
-              {" "}ElevenLabs - Backup
+              <button
+                className="icon-btn"
+                title="Show / Hide"
+                onClick={() => handleToggleKey(api.id)}
+              >
+                <i
+                  className={`fa-regular ${
+                    api.visible ? "fa-eye-slash" : "fa-eye"
+                  }`}
+                ></i>
+              </button>
             </div>
 
-            <span
-              className="api-status"
-              style={{
-                backgroundColor: "#f1f5f9",
-                color: "#64748b",
-              }}
-            >
-              Inactive
-            </span>
+            <div className="api-actions">
+              <button
+                className="icon-btn delete"
+                onClick={() => handleDeleteApi(api.id)}
+              >
+                <i className="fa-solid fa-trash"></i>
+                {" "}Delete
+              </button>
+            </div>
           </div>
-
-          <div className="api-key-box">
-            <input
-              type="password"
-              value="sk_eleven_1234567890qwerty"
-              readOnly
-            />
-
-            <button className="icon-btn" title="Copy Key">
-              <i className="fa-regular fa-copy"></i>
-            </button>
-
-            <button className="icon-btn" title="Show/Hide Key">
-              <i className="fa-regular fa-eye"></i>
-            </button>
-          </div>
-
-          <div className="api-actions">
-            <button className="icon-btn delete" title="Delete Key">
-              <i className="fa-solid fa-trash"></i>
-              {" "}Delete
-            </button>
-          </div>
-        </div>
+        ))}
       </div>
+
+      {/* Modal */}
+      {showPopup && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <h2>Add API Key</h2>
+
+            <input
+              type="text"
+              placeholder="API Label"
+            />
+
+            <input
+              type="text"
+              placeholder="API Key"
+            />
+
+            <div className="modal-actions">
+              <button
+                className="btn-primary"
+                onClick={handleClosePopup}
+              >
+                Save
+              </button>
+
+              <button
+                className="btn-secondary"
+                onClick={handleClosePopup}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
