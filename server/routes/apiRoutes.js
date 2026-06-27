@@ -1,6 +1,6 @@
 import express from "express";
 import ApiKey from "../models/ApiKey.js";
-import { isDbReady } from "../config/db.js";
+import connectDB, { isDbReady } from "../config/db.js";
 
 const router = express.Router();
 
@@ -23,16 +23,20 @@ const normalizeApiKey = (item) => ({
 });
 
 const getAllApiKeys = async () => {
-  if (isDbReady()) {
-    try {
-      const dbKeys = await ApiKey.find({}).sort({ createdAt: -1 });
-      return dbKeys.map(normalizeApiKey);
-    } catch (error) {
-      console.error("Error loading API keys from MongoDB:", error.message);
+  if (!isDbReady()) {
+    const connected = await connectDB();
+    if (!connected) {
+      return inMemoryApiKeys.map(normalizeApiKey);
     }
   }
 
-  return inMemoryApiKeys.map(normalizeApiKey);
+  try {
+    const dbKeys = await ApiKey.find({}).sort({ createdAt: -1 });
+    return dbKeys.map(normalizeApiKey);
+  } catch (error) {
+    console.error("Error loading API keys from MongoDB:", error.message);
+    return inMemoryApiKeys.map(normalizeApiKey);
+  }
 };
 
 router.get("/", async (_req, res) => {
@@ -53,6 +57,26 @@ router.post("/", async (req, res) => {
         success: false,
         message: "Label and key are required",
       });
+    }
+
+    if (!isDbReady()) {
+      const connected = await connectDB();
+      if (connected) {
+        const apiKey = new ApiKey({
+          label,
+          key,
+          provider,
+          active,
+        });
+
+        await apiKey.save();
+
+        return res.status(201).json({
+          success: true,
+          message: "API Key Added Successfully",
+          data: normalizeApiKey(apiKey),
+        });
+      }
     }
 
     if (isDbReady()) {

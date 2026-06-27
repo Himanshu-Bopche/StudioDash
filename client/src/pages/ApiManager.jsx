@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import "./ApiManager.css";
+import Sidebar from "../components/Sidebar";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api/keys";
+const API_URL = import.meta.env.VITE_API_URL || "/api/keys";
 
 function ApiManager() {
   const [showPopup, setShowPopup] = useState(false);
@@ -11,6 +12,9 @@ function ApiManager() {
   const [newApiKey, setNewApiKey] = useState("");
   const [apiList, setApiList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [toast, setToast] = useState({ show: false, type: "success", message: "" });
 
   const loadApiKeys = async () => {
     try {
@@ -32,6 +36,13 @@ function ApiManager() {
     loadApiKeys();
   }, []);
 
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, type, message });
+    window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 3000);
+  };
+
   const handleOpenPopup = () => {
     setShowPopup(true);
   };
@@ -43,10 +54,14 @@ function ApiManager() {
   };
 
   const handleSaveApi = async () => {
+    if (submitting) return;
+
     if (!newApiLabel.trim() || !newApiKey.trim()) {
-      alert("Please fill in both fields");
+      showToast("Please fill in both fields", "error");
       return;
     }
+
+    setSubmitting(true);
 
     try {
       const response = await fetch(API_URL, {
@@ -65,12 +80,15 @@ function ApiManager() {
       if (result.success) {
         setApiList((prev) => [{ ...result.data, visible: false }, ...prev]);
         handleClosePopup();
+        showToast("API key added successfully", "success");
       } else {
-        alert(result.message || "Unable to save API key");
+        showToast(result.message || "Unable to save API key", "error");
       }
     } catch (error) {
       console.error("Failed to save API key", error);
-      alert("Unable to save API key right now");
+      showToast("Unable to save API key right now", "error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -83,31 +101,40 @@ function ApiManager() {
   const handleCopyKey = async (key) => {
     try {
       await navigator.clipboard.writeText(key);
-      alert("API Key copied!");
+      showToast("API Key copied!", "success");
     } catch (error) {
       console.error("Copy failed", error);
-      alert("Copy failed. Please try again.");
+      showToast("Copy failed. Please try again.", "error");
     }
   };
 
   const handleDeleteApi = async (id) => {
+    if (deletingId) return;
+
+    setDeletingId(id);
+
     try {
       const response = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
       const result = await response.json();
 
       if (result.success) {
         setApiList((prev) => prev.filter((item) => item.id !== id));
+        showToast("API key deleted successfully", "success");
       } else {
-        alert(result.message || "Unable to delete API key");
+        showToast(result.message || "Unable to delete API key", "error");
       }
     } catch (error) {
       console.error("Failed to delete API key", error);
-      alert("Unable to delete API key right now");
+      showToast("Unable to delete API key right now", "error");
+    } finally {
+      setDeletingId(null);
     }
   };
 
   return (
-    <>
+     <div className="app-shell">
+      <Sidebar active="api-manager" />
+      <main className="main-content">
       <div className="header">
         <div>
           <h1>API Manager</h1>
@@ -211,9 +238,13 @@ function ApiManager() {
               </div>
 
               <div className="api-actions">
-                <button className="icon-btn delete" onClick={() => handleDeleteApi(api.id)}>
+                <button
+                  className="icon-btn delete"
+                  onClick={() => handleDeleteApi(api.id)}
+                  disabled={deletingId === api.id}
+                >
                   <i className="fa-solid fa-trash"></i>
-                  {" "}Delete
+                  {" "}{deletingId === api.id ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>
@@ -221,40 +252,67 @@ function ApiManager() {
         </div>
       )}
 
+      {toast.show && (
+        <div className={`toast ${toast.type === "error" ? "toast-error" : "toast-success"}`}>
+          <i className={`fa-solid ${toast.type === "error" ? "fa-circle-exclamation" : "fa-circle-check"}`}></i>
+          <span>{toast.message}</span>
+        </div>
+      )}
+
       {showPopup && (
         <div className="modal-overlay">
-          <div className="modal-box">
-            <h2>Add API Key</h2>
+          <div className="modal-content">
+            <div className="modal-header">
+              <span>
+                <i className="fa-solid fa-key" style={{ color: "var(--primary-orange)" }}></i>{" "}
+                Add New API Key
+              </span>
 
-            <input
-              type="text"
-              placeholder="API Label"
-              value={newApiLabel}
-              onChange={(e) => setNewApiLabel(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSaveApi()}
-            />
+              <button type="button" className="icon-btn" onClick={handleClosePopup}>
+                <i className="fa-solid fa-xmark" style={{ fontSize: "20px" }}></i>
+              </button>
+            </div>
 
-            <input
-              type="text"
-              placeholder="API Key"
-              value={newApiKey}
-              onChange={(e) => setNewApiKey(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSaveApi()}
-            />
+            <div className="form-group">
+              <label htmlFor="apiLabel">API Provider / Label</label>
+              <input
+                id="apiLabel"
+                type="text"
+                className="form-control"
+                placeholder="e.g., ElevenLabs - Project X"
+                value={newApiLabel}
+                onChange={(e) => setNewApiLabel(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveApi()}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="apiValue">Secret API Key</label>
+              <input
+                id="apiValue"
+                type="text"
+                className="form-control"
+                placeholder="sk_..."
+                value={newApiKey}
+                onChange={(e) => setNewApiKey(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveApi()}
+              />
+            </div>
 
             <div className="modal-actions">
-              <button className="btn-primary" onClick={handleSaveApi}>
-                Save
+              <button type="button" className="btn-cancel" onClick={handleClosePopup}>
+                Cancel
               </button>
 
-              <button className="btn-secondary" onClick={handleClosePopup}>
-                Cancel
+              <button type="button" className="btn-primary" onClick={handleSaveApi} disabled={submitting}>
+                {submitting ? "Saving..." : "Save API Key"}
               </button>
             </div>
           </div>
         </div>
       )}
-    </>
+     </main>
+    </div>
   );
 }
 

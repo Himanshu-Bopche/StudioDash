@@ -1,15 +1,17 @@
 import "./App.css";
+import { Routes, Route } from "react-router-dom";
+import Dashboard from "./pages/Dashboard";
 import ApiManager from "./pages/ApiManager";
-import Sidebar from "./components/Sidebar";
+import SettingsPage from "./pages/SettingsPage";
 
 function App() {
   return (
-    <div className="app-shell">
-      <Sidebar />
-      <main className="main-content">
-        <ApiManager />
-      </main>
-    </div>
+    <Routes>
+      <Route path="/" element={<Dashboard />} />
+      <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/api-manager" element={<ApiManager />} />
+      <Route path="*" element={<Dashboard />} />
+    </Routes>
   );
 }
 
